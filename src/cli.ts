@@ -4,6 +4,7 @@ import path from "path"
 import { errorMessage } from "./log"
 import { cfgDir, JSONConfiguration } from "./config"
 import { readFileAsync } from "./file-utils"
+import { deepEqual } from "./utils"
 
 export interface CliOptions {
     name?: string
@@ -99,8 +100,12 @@ export async function cliAsync(args: string[]): Promise<CliOptions & { ok: boole
             const json = await readFileAsync(path.join(cfgDir, options.profile), "utf8")
             const data = JSON.parse(json) as JSONConfiguration
 
-            options.cutArea = data.cut
-            options.resize = data.resize
+            if (deepEqual(options.cutArea, { top: 0, right: 0, bottom: 0, left: 0})) {
+                options.cutArea = data.cut
+            }
+            if (deepEqual(options.resize, { width: 0, height: 0 })) {
+                options.resize = data.resize
+            }
         } catch (e) {
             errorMessage(`Profile ${options.profile} not found.`)
             required = false

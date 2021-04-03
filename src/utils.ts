@@ -6,3 +6,7 @@ export function getName(options: { name?: string, inputFile?: string, inputDir?:
     if (options.inputDir) return path.parse(options.inputDir).name
     return "unknown"
 }
+
+export function deepEqual(obj1: any, obj2: any): boolean {
+    return JSON.stringify(obj1) === JSON.stringify(obj2)
+}

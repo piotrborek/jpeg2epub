@@ -1,7 +1,8 @@
 import path from "path"
+import fs from "fs"
 import Listr from "listr"
 
-import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync } from "./file-utils"
+import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync } from "./file-utils"
 import { magickBin, zipBin, unzipBin } from "./config"
 import { cssFile } from "./templates/css"
 import { metainfFile } from "./templates/metainf"
@@ -131,14 +132,23 @@ async function magickCopyAsync(source: string, dest: string, cli: CliOptions): P
     }
     const files = await readDirRecursiveAsync(source)
 
+    files.sort((a, b) => {
+        if (a.length < b.length) return -1
+        if (a.length > b.length) return 1
+        if (a < b) return -1
+        if (a > b) return 1
+        return 0
+    })
+
     const newNames: string[] = []
-    for (const [index, name] of files.entries()) {
+    let index = 0
+    for (const name of files) {
         const p = path.parse(name)
         const n = `${index}${p.ext}`
         if (p.ext.toLocaleLowerCase() === ".jpg") {
             newNames.push(n)
-            const args = createArgs(index, name)
-            await execFileAsync(magickBin, args)
+            await execFileAsync(magickBin, createArgs(index, name))
+            index++
         }
     }
     return newNames
@@ -153,10 +163,12 @@ async function unzipFiles(options: { cli: CliOptions, path: DocPaths }): Promise
 }
 
 async function zipFiles(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
-    const fileMame = `${getName(options.cli)}.epub`
     const currentDir = process.cwd()
+    const fileName = path.join(currentDir, `${getName(options.cli)}.epub`)
+    const fileExists = await accessAsync(fileName, fs.constants.R_OK)
+    if (fileExists) await fs.promises.unlink(fileName)
     process.chdir(options.path.root)
-    await execFileAsync(zipBin, ["-r", path.join(currentDir, fileMame), "."])
+    await execFileAsync(zipBin, ["-r", fileName, "."])
     process.chdir(currentDir)
 }
 
