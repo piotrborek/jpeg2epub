@@ -1,0 +1,1 @@
+export const mimetypeFile = "application/epub+zip"
