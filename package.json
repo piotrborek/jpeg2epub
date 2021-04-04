@@ -1,6 +1,6 @@
 {
   "name": "jpeg2epub",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "jpeg to epub converter",
   "main": "index.js",
   "scripts": {
@@ -13,10 +13,10 @@
   "devDependencies": {
     "@babel/cli": "^7.13.14",
     "@babel/core": "^7.13.14",
-    "@babel/plugin-proposal-class-properties": "^7.13.0",
-    "@babel/plugin-proposal-object-rest-spread": "^7.13.8",
+    "@babel/plugin-transform-runtime": "^7.13.10",
     "@babel/preset-env": "^7.13.12",
     "@babel/preset-typescript": "^7.13.0",
+    "@babel/types": "*",
     "@types/node": "^14.14.37",
     "@typescript-eslint/eslint-plugin": "^4.20.0",
     "@typescript-eslint/parser": "^4.20.0",
