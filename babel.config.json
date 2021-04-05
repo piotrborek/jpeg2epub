@@ -1,14 +1,10 @@
 {
+  "targets":  {
+    "node": "14"
+  },
   "presets": [
     "@babel/preset-typescript",
-    [
-      "@babel/preset-env",
-      {
-        "targets": {
-          "node": "14"
-        }
-      }
-    ]
+    "@babel/preset-env"
   ],
   "plugins": [
     "@babel/plugin-transform-runtime"

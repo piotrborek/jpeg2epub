@@ -31,15 +31,6 @@ export function mkTempDirAsync(prefix: string): Promise<string> {
     })
 }
 
-export function writeFileAsync(name: string, data: string | NodeJS.ArrayBufferView): Promise<void> {
-    return new Promise((resolve, reject) => {
-        fs.writeFile(name, data, (err) => {
-            if (err) reject(err)
-            else resolve()
-        })
-    })
-}
-
 export function readDirAsync(path: string): Promise<fs.Dirent[]> {
     return new Promise((resolve, reject) => {
         fs.readdir(path, { withFileTypes: true }, (err, files) => {
@@ -67,3 +58,4 @@ export async function readDirRecursiveAsync(pathString: string): Promise<string[
 
 export const execFileAsync = util.promisify(child_process.execFile)
 export const readFileAsync = util.promisify(fs.readFile)
+export const writeFileAsync = util.promisify(fs.writeFile)

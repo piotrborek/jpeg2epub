@@ -1,16 +1,18 @@
 import path from "path"
 import fs from "fs"
 import Listr from "listr"
+import jpeg from "jpeg-js"
 
-import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync } from "./file-utils"
-import { magickBin, zipBin, unzipBin } from "./config"
+import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync } from "./file-utils"
+import { zipBin, unzipBin, magickBin } from "./config"
 import { cssFile } from "./templates/css"
 import { metainfFile } from "./templates/metainf"
 import { mimetypeFile } from "./templates/mimetype"
 import { pageFile } from "./templates/page"
 import { contentCSSItem, contentFile, contentImageItem, contentFileItem, contentItemref } from "./templates/content"
 import { getName } from "./utils"
-import { CliOptions } from "./cli"
+import { CliOptions, CutArea } from "./cli"
+import { calculateTopAndBottomBorder } from "./borders"
 
 interface DocPaths {
     root: string
@@ -117,19 +119,25 @@ async function writeContentFileAsync(images: string[], pages: string[], options:
     await writeFileAsync(path.join(options.path.root, "content.opf"), content)
 }
 
-async function magickCopyAsync(source: string, dest: string, cli: CliOptions): Promise<string[]> {
-    function createArgs(index: number, name: string) {
+async function processImagesAsync(source: string, dest: string, cli: CliOptions): Promise<string[]> {
+    function createArgs(index: number, name: string, cutArea: CutArea) {
         const p = path.parse(name)
         const n = `${index}${p.ext}`
         const args: string[] = []
         args.push(path.join(source, name))
-        if (cli.cutArea.top != 0 || cli.cutArea.top != 0) args.push("-chop", `${cli.cutArea.left}x${cli.cutArea.top}`)
-        if (cli.cutArea.right) args.push("-gravity", "East", "-chop", `${cli.cutArea.right}x0`)
-        if (cli.cutArea.bottom) args.push("-gravity", "South", "-chop", `0x${cli.cutArea.bottom}`)
+        if (cutArea.top != 0 || cutArea.top != 0) args.push("-chop", `${cutArea.left}x${cutArea.top}`)
+        if (cutArea.right) args.push("-gravity", "East", "-chop", `${cutArea.right}x0`)
+        if (cutArea.bottom) args.push("-gravity", "South", "-chop", `0x${cutArea.bottom}`)
         if (cli.resize.width != 0 && cli.resize.height != 0) args.push("-resize", `${cli.resize.width}x${cli.resize.height}`)
+        args.push("-quality", `${cli.quality}`)
         args.push(path.join(dest, n))
         return args
     }
+    async function readImageAsync(filename: string) {
+        const fileImage = await readFileAsync(filename)
+        return jpeg.decode(fileImage)
+    }
+
     const files = await readDirRecursiveAsync(source)
 
     files.sort((a, b) => {
@@ -142,27 +150,35 @@ async function magickCopyAsync(source: string, dest: string, cli: CliOptions): P
 
     const newNames: string[] = []
     let index = 0
+    let firstJpeg = true
+    let cutArea = cli.cutArea
     for (const name of files) {
         const p = path.parse(name)
         const n = `${index}${p.ext}`
         if (p.ext.toLocaleLowerCase() === ".jpg") {
             newNames.push(n)
-            await execFileAsync(magickBin, createArgs(index, name))
+            if (firstJpeg) {
+                firstJpeg = false
+                const srcImage = await readImageAsync(path.join(source, name));
+                const [borderTop, borderBottom] = calculateTopAndBottomBorder(srcImage, { threshold: cli.threshold })
+                if (cli.autoCut) {
+                    cutArea = { top: borderTop, right: 0, bottom: borderBottom, left: 0 }
+                }
+            }
+            await execFileAsync(magickBin, createArgs(index, name, cutArea))
             index++
         }
     }
     return newNames
 }
 
-async function unzipFiles(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
+async function unzipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
     if (options.cli.inputFile) {
         await execFileAsync(unzipBin, [options.cli.inputFile, "-d", options.path.unzip])
-    } else {
-        throw new Error(`File ${options.cli.inputFile} doesn't exists`)
     }
 }
 
-async function zipFiles(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
+async function zipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
     const currentDir = process.cwd()
     const fileName = path.join(currentDir, `${getName(options.cli)}.epub`)
     const fileExists = await accessAsync(fileName, fs.constants.R_OK)
@@ -172,13 +188,12 @@ async function zipFiles(options: { cli: CliOptions, path: DocPaths }): Promise<v
     process.chdir(currentDir)
 }
 
-export async function prepareInputFiles(options: { cli: CliOptions, path: DocPaths }): Promise<string[]> {
+export async function prepareInputFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<string[]> {
     let images: string[] = []
     if (options.cli.inputFile) {
-        await unzipFiles(options)
-        images = await magickCopyAsync(options.path.unzip, options.path.images, options.cli)
+        images = await processImagesAsync(options.path.unzip, options.path.images, options.cli)
     } else if (options.cli.inputDir) {
-        images = await magickCopyAsync(options.cli.inputDir, options.path.images, options.cli)
+        images = await processImagesAsync(options.cli.inputDir, options.path.images, options.cli)
     }
     return images
 }
@@ -191,11 +206,14 @@ export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: s
     }
 
     const tasks = new Listr([
-        { title: "creating directories", task: () =>
-            createDirectoriesAsync(docOptions.path)
+        { title: "creating directories", task: async () =>
+            await createDirectoriesAsync(docOptions.path)
         },
-        { title: "processing input files", task: async () =>
-            images = await prepareInputFiles(docOptions)
+        { title: "decompresing", task: async () => {
+            await unzipFilesAsync(docOptions)
+        }},
+        { title: "processing images", task: async () =>
+            images = await prepareInputFilesAsync(docOptions)
         },
         { title: "generating files", task: async () => {
             await writeStylesAsync(docOptions)
@@ -204,8 +222,8 @@ export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: s
             const pages = await writePagesAsync(images, docOptions)
             await writeContentFileAsync(images, pages, docOptions)
         }},
-        { title: "compressing epub", task: () =>
-            zipFiles(docOptions)
+        { title: "compressing epub", task: async () =>
+            await zipFilesAsync(docOptions)
         }
     ])
 

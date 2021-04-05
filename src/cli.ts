@@ -6,12 +6,22 @@ import { cfgDir, JSONConfiguration } from "./config"
 import { readFileAsync } from "./file-utils"
 import { deepEqual } from "./utils"
 
+export interface CutArea {
+    top: number
+    right: number
+    bottom: number
+    left: number
+}
+
 export interface CliOptions {
     name?: string
     keep?: string
-    cutArea: { top: number, right: number, bottom: number, left: number }
-    resize: { width: number, height: number },
+    cutArea: CutArea
+    resize: { width: number, height: number }
     profile?: string
+    autoCut: boolean
+    threshold: number
+    quality: number
     inputFile?: string
     inputDir?: string
 }
@@ -66,11 +76,17 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
             "--cut": String,
             "--resize": String,
             "--profile": String,
+            "--autocut": arg.COUNT,
+            "--threshold": String,
+            "--quality": String,
             "-i": String,
             "-I": String,
 
             "-n": "--name",
-            "-p": "--profile"
+            "-p": "--profile",
+            "-t": "--threshold",
+            "-q": "--quality",
+            "-C": "--autocut"
         },
         {
             argv: rawArgs.slice(2)
@@ -82,6 +98,9 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
         cutArea: parseCutArea(args["--cut"]),
         resize: parseResize(args["--resize"]),
         profile: args["--profile"],
+        autoCut: (args["--autocut"] ?? 0) !== 0,
+        threshold: parseInt(args["--threshold"] ?? "30"),
+        quality: parseInt(args["--quality"] ?? "95"),
         inputFile: args["-i"],
         inputDir: args["-I"]
     }
