@@ -13,6 +13,7 @@ import { contentCSSItem, contentFile, contentImageItem, contentFileItem, content
 import { getName } from "./utils"
 import { CliOptions, CutArea } from "./cli"
 import { calculateTopAndBottomBorder } from "./borders"
+import { execProcessInParallelAsync } from "./worker"
 
 interface DocPaths {
     root: string
@@ -152,6 +153,7 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
     let index = 0
     let firstJpeg = true
     let cutArea = cli.cutArea
+    const argsList: string[][] = []
     for (const name of files) {
         const p = path.parse(name)
         const n = `${index}${p.ext}`
@@ -165,10 +167,14 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
                     cutArea = { top: borderTop, right: 0, bottom: borderBottom, left: 0 }
                 }
             }
-            await execFileAsync(magickBin, createArgs(index, name, cutArea))
+            //await execFileAsync(magickBin, createArgs(index, name, cutArea))
+            argsList.push(createArgs(index, name, cutArea))
             index++
         }
     }
+
+    await execProcessInParallelAsync(magickBin, argsList, cli)
+
     return newNames
 }
 

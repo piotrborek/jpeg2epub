@@ -47,7 +47,7 @@ export async function checkCfgDirAsync(): Promise<boolean> {
     return attrsOk
 }
 
-export async function checkConfig(): Promise<boolean> {
+export async function checkConfigAsync(): Promise<boolean> {
     const zipExists = await checkZipProgramAsync()
     if (!zipExists) {
         errorMessage(`File ${zipBin} could not be found or is not executable.`)

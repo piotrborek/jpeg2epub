@@ -22,6 +22,7 @@ export interface CliOptions {
     autoCut: boolean
     threshold: number
     quality: number
+    jobs: number
     inputFile?: string
     inputDir?: string
 }
@@ -79,6 +80,7 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
             "--autocut": arg.COUNT,
             "--threshold": String,
             "--quality": String,
+            "--jobs": String,
             "-i": String,
             "-I": String,
 
@@ -86,7 +88,8 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
             "-p": "--profile",
             "-t": "--threshold",
             "-q": "--quality",
-            "-C": "--autocut"
+            "-C": "--autocut",
+            "-j": "--jobs"
         },
         {
             argv: rawArgs.slice(2)
@@ -100,7 +103,8 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
         profile: args["--profile"],
         autoCut: (args["--autocut"] ?? 0) !== 0,
         threshold: parseInt(args["--threshold"] ?? "30"),
-        quality: parseInt(args["--quality"] ?? "95"),
+        quality: parseInt(args["--quality"] ?? "90"),
+        jobs: parseInt(args["--jobs"] ?? "0"),
         inputFile: args["-i"],
         inputDir: args["-I"]
     }

@@ -1,13 +1,15 @@
 import chalk from "chalk"
 import figlet from "figlet"
 import os from "os"
+import console from "console"
+import perf_hooks from "perf_hooks"
 
-import { checkConfig, writeConfigAsync } from "./config"
+import { checkConfigAsync, writeConfigAsync } from "./config"
 import { cliAsync } from "./cli"
 import { mkTempDirAsync } from "./file-utils"
 import { buildDocumentAsync } from "./docbuilder"
 import { getName } from "./utils"
-import { errorMessage } from "./log"
+import { errorMessage, infoMessage } from "./log"
 
 function showLogo() {
     console.log(
@@ -23,6 +25,8 @@ async function createOutputTempDirAsync(options: { name?: string, inputFile?: st
 }
 
 async function main() {
+    const startTime = perf_hooks.performance.now()
+
     showLogo()
 
     if (os.platform().toLocaleLowerCase() !== "linux") {
@@ -30,7 +34,7 @@ async function main() {
         return
     }
 
-    const configError = await checkConfig()
+    const configError = await checkConfigAsync()
     if (configError) return
 
     const options = await cliAsync(process.argv)
@@ -40,7 +44,12 @@ async function main() {
 
     const buildDir = await createOutputTempDirAsync(options)
 
-    buildDocumentAsync({ cli: options, buildDir })
+    await buildDocumentAsync({ cli: options, buildDir })
+
+    const time = (perf_hooks.performance.now() - startTime) / 1000
+
+    console.log("\n")
+    infoMessage(`It took: ${time.toFixed(2)} ms`)
 }
 
 main()
