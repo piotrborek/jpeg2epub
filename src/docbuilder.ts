@@ -3,7 +3,7 @@ import fs from "fs"
 import Listr from "listr"
 import jpeg from "jpeg-js"
 
-import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync, hasExtension } from "./file-utils"
+import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync, hasExtension, rmdirAsync } from "./file-utils"
 import { zipBin, unzipBin, magickBin } from "./config"
 import { cssFile } from "./templates/css"
 import { metainfFile } from "./templates/metainf"
@@ -193,7 +193,7 @@ async function zipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Prom
     process.chdir(currentDir)
 }
 
-export async function prepareInputFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<string[]> {
+async function prepareInputFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<string[]> {
     if (options.cli.inputFile) {
         return await processImagesAsync(options.path.unzip, options.path.images, options.cli)
     }
@@ -201,6 +201,14 @@ export async function prepareInputFilesAsync(options: { cli: CliOptions, path: D
         return await processImagesAsync(options.cli.inputDir, options.path.images, options.cli)
     }
     return []
+}
+
+async function generateEpubFilesAsync(images: string[], options: { cli: CliOptions, path: DocPaths }): Promise<void> {
+    await writeStylesAsync(options)
+    await writeMetainfAsync(options)
+    await writeMimetypeAsync(options)
+    const pages = await writePagesAsync(images, options)
+    await writeContentFileAsync(images, pages, options)
 }
 
 export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: string }): Promise<void> {
@@ -211,26 +219,34 @@ export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: s
     }
 
     const tasks = new Listr([
-        { title: "creating directories", task: async () =>
-            await createDirectoriesAsync(docOptions.path)
+        {
+            title: "creating directories",
+            task: async () => await createDirectoriesAsync(docOptions.path)
         },
-        { title: "decompresing", task: async () => {
-            await unzipFilesAsync(docOptions)
-        }},
-        { title: "processing images", task: async () =>
-            images = await prepareInputFilesAsync(docOptions)
+        {
+            title: "decompresing",
+            task: async () => await unzipFilesAsync(docOptions)
         },
-        { title: "generating files", task: async () => {
-            await writeStylesAsync(docOptions)
-            await writeMetainfAsync(docOptions)
-            await writeMimetypeAsync(docOptions)
-            const pages = await writePagesAsync(images, docOptions)
-            await writeContentFileAsync(images, pages, docOptions)
-        }},
-        { title: "compressing epub", task: async () =>
-            await zipFilesAsync(docOptions)
+        {
+            title: "processing images",
+            task: async () => images = await prepareInputFilesAsync(docOptions)
+        },
+        {
+            title: "generating files",
+            task: async () => await generateEpubFilesAsync(images, docOptions)
+        },
+        {
+            title: "compressing epub",
+            task: async () => await zipFilesAsync(docOptions)
         }
     ])
+
+    if (!options.cli.keepTemp) {
+        tasks.add({
+            title: "removig temp directory",
+            task: async() => await rmdirAsync(options.buildDir, { recursive: true })
+        })
+    }
 
     await tasks.run()
 }

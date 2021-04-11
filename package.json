@@ -1,6 +1,6 @@
 {
   "name": "jpeg2epub",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "jpeg to epub converter",
   "main": "index.js",
   "scripts": {

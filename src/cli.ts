@@ -24,6 +24,7 @@ export interface CliOptions {
     quality: number
     jobs: number
     page: number
+    keepTemp: boolean
     inputFile?: string
     inputDir?: string
 }
@@ -83,6 +84,7 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
             "--quality": String,
             "--jobs": String,
             "--page": String,
+            "--keep-temp": arg.COUNT,
             "-i": String,
             "-I": String,
 
@@ -108,6 +110,7 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
         quality: parseInt(args["--quality"] ?? "90"),
         jobs: parseInt(args["--jobs"] ?? "0"),
         page: parseInt(args["--page"] ?? "1"),
+        keepTemp: (args["--keep-temp"] ?? 0) !== 0,
         inputFile: args["-i"],
         inputDir: args["-I"]
     }
