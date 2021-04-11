@@ -3,7 +3,7 @@ import fs from "fs"
 import Listr from "listr"
 import jpeg from "jpeg-js"
 
-import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync } from "./file-utils"
+import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync, hasExtension } from "./file-utils"
 import { zipBin, unzipBin, magickBin } from "./config"
 import { cssFile } from "./templates/css"
 import { metainfFile } from "./templates/metainf"
@@ -120,6 +120,26 @@ async function writeContentFileAsync(images: string[], pages: string[], options:
     await writeFileAsync(path.join(options.path.root, "content.opf"), content)
 }
 
+async function readImageAsync(filename: string) {
+    const fileImage = await readFileAsync(filename)
+    return jpeg.decode(fileImage)
+}
+
+async function calculateBordersAsync(source: string, files: string[], cli: CliOptions): Promise<CutArea> {
+    if (!cli.autoCut) return cli.cutArea
+
+    const page = cli.page > 1 ? cli.page - 1 : 0
+    const srcImage = await readImageAsync(path.join(source, files[page]));
+    const [borderTop, borderBottom] = calculateTopAndBottomBorder(srcImage, { threshold: cli.threshold })
+
+    return {
+        top: borderTop,
+        right: 0,
+        bottom: borderBottom,
+        left: 0
+    }
+}
+
 async function processImagesAsync(source: string, dest: string, cli: CliOptions): Promise<string[]> {
     function createArgs(index: number, name: string, cutArea: CutArea) {
         const p = path.parse(name)
@@ -134,13 +154,12 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
         args.push(path.join(dest, n))
         return args
     }
-    async function readImageAsync(filename: string) {
-        const fileImage = await readFileAsync(filename)
-        return jpeg.decode(fileImage)
+    function makeFileName(name: string, index: number): string {
+        const p = path.parse(name)
+        return `${index}${p.ext}`
     }
 
     const files = await readDirRecursiveAsync(source)
-
     files.sort((a, b) => {
         if (a.length < b.length) return -1
         if (a.length > b.length) return 1
@@ -148,34 +167,14 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
         if (a > b) return 1
         return 0
     })
+    const imageFiles = files.filter(name => hasExtension(name, ".jpg"))
 
-    const newNames: string[] = []
-    let index = 0
-    let firstJpeg = true
-    let cutArea = cli.cutArea
-    const argsList: string[][] = []
-    for (const name of files) {
-        const p = path.parse(name)
-        const n = `${index}${p.ext}`
-        if (p.ext.toLocaleLowerCase() === ".jpg") {
-            newNames.push(n)
-            if (firstJpeg) {
-                firstJpeg = false
-                const srcImage = await readImageAsync(path.join(source, name));
-                const [borderTop, borderBottom] = calculateTopAndBottomBorder(srcImage, { threshold: cli.threshold })
-                if (cli.autoCut) {
-                    cutArea = { top: borderTop, right: 0, bottom: borderBottom, left: 0 }
-                }
-            }
-            //await execFileAsync(magickBin, createArgs(index, name, cutArea))
-            argsList.push(createArgs(index, name, cutArea))
-            index++
-        }
-    }
+    const cutArea = await calculateBordersAsync(source, imageFiles, cli)
 
+    const argsList = imageFiles.map((name, index) => createArgs(index, name, cutArea))
     await execProcessInParallelAsync(magickBin, argsList, cli)
 
-    return newNames
+    return imageFiles.map((name, index) => makeFileName(name, index))
 }
 
 async function unzipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
@@ -195,13 +194,13 @@ async function zipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Prom
 }
 
 export async function prepareInputFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<string[]> {
-    let images: string[] = []
     if (options.cli.inputFile) {
-        images = await processImagesAsync(options.path.unzip, options.path.images, options.cli)
-    } else if (options.cli.inputDir) {
-        images = await processImagesAsync(options.cli.inputDir, options.path.images, options.cli)
+        return await processImagesAsync(options.path.unzip, options.path.images, options.cli)
     }
-    return images
+    if (options.cli.inputDir) {
+        return await processImagesAsync(options.cli.inputDir, options.path.images, options.cli)
+    }
+    return []
 }
 
 export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: string }): Promise<void> {

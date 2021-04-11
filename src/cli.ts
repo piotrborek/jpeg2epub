@@ -23,6 +23,7 @@ export interface CliOptions {
     threshold: number
     quality: number
     jobs: number
+    page: number
     inputFile?: string
     inputDir?: string
 }
@@ -81,6 +82,7 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
             "--threshold": String,
             "--quality": String,
             "--jobs": String,
+            "--page": String,
             "-i": String,
             "-I": String,
 
@@ -105,6 +107,7 @@ function parseArgumentsIntoOptions(rawArgs: string[]): CliOptions {
         threshold: parseInt(args["--threshold"] ?? "30"),
         quality: parseInt(args["--quality"] ?? "90"),
         jobs: parseInt(args["--jobs"] ?? "0"),
+        page: parseInt(args["--page"] ?? "1"),
         inputFile: args["-i"],
         inputDir: args["-I"]
     }

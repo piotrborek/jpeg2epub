@@ -56,6 +56,11 @@ export async function readDirRecursiveAsync(pathString: string): Promise<string[
     return dirent
 }
 
+export function hasExtension(name: string, ext: string): boolean {
+    const p = path.parse(name)
+    return p.ext.toLocaleLowerCase() === ext
+}
+
 export const execFileAsync = util.promisify(child_process.execFile)
 export const readFileAsync = util.promisify(fs.readFile)
 export const writeFileAsync = util.promisify(fs.writeFile)
