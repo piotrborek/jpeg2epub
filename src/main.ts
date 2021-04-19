@@ -49,7 +49,7 @@ async function main() {
     const time = (perf_hooks.performance.now() - startTime) / 1000
 
     console.log("\n")
-    infoMessage(`It took: ${time.toFixed(2)} ms`)
+    infoMessage(`It took: ${time.toFixed(2)} s`)
 }
 
 main()
