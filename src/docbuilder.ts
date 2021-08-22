@@ -10,7 +10,7 @@ import { metainfFile } from "./templates/metainf"
 import { mimetypeFile } from "./templates/mimetype"
 import { pageFile } from "./templates/page"
 import { contentCSSItem, contentFile, contentImageItem, contentFileItem, contentItemref } from "./templates/content"
-import { getName } from "./utils"
+import { getName, fillZeroes, hasNumericFileNames } from "./utils"
 import { CliOptions, CutArea } from "./cli"
 import { calculateTopAndBottomBorder } from "./borders"
 import { execProcessInParallelAsync } from "./worker"
@@ -23,6 +23,8 @@ interface DocPaths {
     images: string
     unzip: string
 }
+
+const INDEX_SIZE = 5
 
 function createDocPaths(buildDir: string): DocPaths {
     return {
@@ -63,8 +65,9 @@ async function writePagesAsync(images: string[], options: { path: { images: stri
 
     const pages: string[] = []
     for (const [index, image] of images.entries()) {
-        const page = makePage(`Page ${index}`, imgpath, image)
-        const pageFile = `page_${index}.xhtml`
+        const indexString = fillZeroes(`${index}`, INDEX_SIZE)
+        const page = makePage(`Page ${indexString}`, imgpath, image)
+        const pageFile = `page_${indexString}.xhtml`
         pages.push(pageFile)
         await writeFileAsync(path.join(options.path.text, pageFile), page)
     }
@@ -141,9 +144,13 @@ async function calculateBordersAsync(source: string, files: string[], cli: CliOp
 }
 
 async function processImagesAsync(source: string, dest: string, cli: CliOptions): Promise<string[]> {
-    function createArgs(index: number, name: string, cutArea: CutArea) {
+    function makeFileName(name: string, index: number): string {
         const p = path.parse(name)
-        const n = `${index}${p.ext}`
+        return fillZeroes(`${index}`, INDEX_SIZE) + `${p.ext}`
+    }
+    function createArgs(index: number, name: string, cutArea: CutArea) {
+        const n = makeFileName(name, index)
+        console.log(n)
         const args: string[] = []
         args.push(path.join(source, name))
         if (cutArea.top != 0 || cutArea.top != 0) args.push("-chop", `${cutArea.left}x${cutArea.top}`)
@@ -154,20 +161,21 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
         args.push(path.join(dest, n))
         return args
     }
-    function makeFileName(name: string, index: number): string {
-        const p = path.parse(name)
-        return `${index}${p.ext}`
-    }
 
     const files = await readDirRecursiveAsync(source)
-    files.sort((a, b) => {
-        if (a.length < b.length) return -1
-        if (a.length > b.length) return 1
-        if (a < b) return -1
-        if (a > b) return 1
-        return 0
-    })
     const imageFiles = files.filter(name => hasExtension(name, ".jpg"))
+
+    if (hasNumericFileNames(imageFiles)) {
+        imageFiles.sort((a, b) => {
+            if (a.length < b.length) return -1
+            if (a.length > b.length) return 1
+            if (a < b) return -1
+            if (a > b) return 1
+            return 0
+        })
+    } else {
+        imageFiles.sort()
+    }
 
     const cutArea = await calculateBordersAsync(source, imageFiles, cli)
 
