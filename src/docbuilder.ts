@@ -150,7 +150,6 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
     }
     function createArgs(index: number, name: string, cutArea: CutArea) {
         const n = makeFileName(name, index)
-        console.log(n)
         const args: string[] = []
         args.push(path.join(source, name))
         if (cutArea.top != 0 || cutArea.top != 0) args.push("-chop", `${cutArea.left}x${cutArea.top}`)
