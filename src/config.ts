@@ -2,9 +2,9 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 
-import * as fsutils from "./file-utils"
-import { errorMessage } from "./log"
-import { CliOptions } from "./cli"
+import * as fsutils from "./file-utils.js"
+import { errorMessage } from "./log.js"
+import { CliOptions } from "./cli.js"
 
 export interface JSONConfiguration {
     cut: {

@@ -64,4 +64,4 @@ export function hasExtension(name: string, ext: string): boolean {
 export const execFileAsync = util.promisify(child_process.execFile)
 export const readFileAsync = fs.promises.readFile
 export const writeFileAsync = fs.promises.writeFile
-export const rmdirAsync = fs.promises.rmdir
+export const rmAsync = fs.promises.rm

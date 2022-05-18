@@ -1,10 +1,10 @@
 import arg from "arg"
 import path from "path"
 
-import { errorMessage } from "./log"
-import { cfgDir, JSONConfiguration } from "./config"
-import { readFileAsync } from "./file-utils"
-import { deepEqual } from "./utils"
+import { errorMessage } from "./log.js"
+import { cfgDir, JSONConfiguration } from "./config.js"
+import { readFileAsync } from "./file-utils.js"
+import { deepEqual } from "./utils.js"
 
 export interface CutArea {
     top: number

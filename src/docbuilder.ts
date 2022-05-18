@@ -3,17 +3,18 @@ import fs from "fs"
 import Listr from "listr"
 import jpeg from "jpeg-js"
 
-import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync, hasExtension, rmdirAsync } from "./file-utils"
-import { zipBin, unzipBin, magickBin } from "./config"
-import { cssFile } from "./templates/css"
-import { metainfFile } from "./templates/metainf"
-import { mimetypeFile } from "./templates/mimetype"
-import { pageFile } from "./templates/page"
-import { contentCSSItem, contentFile, contentImageItem, contentFileItem, contentItemref } from "./templates/content"
-import { getName, fillZeroes, hasNumericFileNames } from "./utils"
-import { CliOptions, CutArea } from "./cli"
-import { calculateTopAndBottomBorder } from "./borders"
-import { execProcessInParallelAsync } from "./worker"
+import { mkdirAsync, writeFileAsync, readDirRecursiveAsync, execFileAsync, accessAsync, readFileAsync, hasExtension, rmAsync } from "./file-utils.js"
+import { zipBin, unzipBin, magickBin } from "./config.js"
+import { cssFile } from "./templates/css.js"
+import { metainfFile } from "./templates/metainf.js"
+import { mimetypeFile } from "./templates/mimetype.js"
+import { pageFile } from "./templates/page.js"
+import { contentCSSItem, contentFile, contentImageItem, contentFileItem, contentItemref } from "./templates/content.js"
+import { getName, fillZeroes } from "./utils.js"
+import { CliOptions, CutArea } from "./cli.js"
+import { calculateTopAndBottomBorder } from "./borders.js"
+import { execProcessInParallelAsync } from "./worker.js"
+import { MixedString } from "./mixedstring.js"
 
 interface DocPaths {
     root: string
@@ -22,6 +23,10 @@ interface DocPaths {
     styles: string
     images: string
     unzip: string
+}
+
+interface TaskContext {
+    images: string[]
 }
 
 const INDEX_SIZE = 5
@@ -164,24 +169,17 @@ async function processImagesAsync(source: string, dest: string, cli: CliOptions)
     const files = await readDirRecursiveAsync(source)
     const imageFiles = files.filter(name => hasExtension(name, ".jpg"))
 
-    if (hasNumericFileNames(imageFiles)) {
-        imageFiles.sort((a, b) => {
-            if (a.length < b.length) return -1
-            if (a.length > b.length) return 1
-            if (a < b) return -1
-            if (a > b) return 1
-            return 0
-        })
-    } else {
-        imageFiles.sort()
-    }
+    const mixedStrings = imageFiles.map(filename => MixedString.parse(filename))
+    mixedStrings.sort(MixedString.compare)
 
-    const cutArea = await calculateBordersAsync(source, imageFiles, cli)
+    const sortedStrings = mixedStrings.map(ms => ms.asString())
 
-    const argsList = imageFiles.map((name, index) => createArgs(index, name, cutArea))
+    const cutArea = await calculateBordersAsync(source, sortedStrings, cli)
+
+    const argsList = sortedStrings.map((name, index) => createArgs(index, name, cutArea))
     await execProcessInParallelAsync(magickBin, argsList, cli)
 
-    return imageFiles.map((name, index) => makeFileName(name, index))
+    return sortedStrings.map((name, index) => makeFileName(name, index))
 }
 
 async function unzipFilesAsync(options: { cli: CliOptions, path: DocPaths }): Promise<void> {
@@ -219,13 +217,13 @@ async function generateEpubFilesAsync(images: string[], options: { cli: CliOptio
 }
 
 export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: string }): Promise<void> {
-    let images: string[] = []
+    //let images: string[] = []
     const docOptions = {
         ...options,
         path: createDocPaths(options.buildDir)
     }
 
-    const tasks = new Listr([
+    const tasks = new Listr<TaskContext>([
         {
             title: "creating directories",
             task: async () => await createDirectoriesAsync(docOptions.path)
@@ -236,24 +234,22 @@ export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: s
         },
         {
             title: "processing images",
-            task: async () => images = await prepareInputFilesAsync(docOptions)
+            task: async (ctx) => ctx.images = await prepareInputFilesAsync(docOptions)
         },
         {
             title: "generating files",
-            task: async () => await generateEpubFilesAsync(images, docOptions)
+            task: async (ctx) => await generateEpubFilesAsync(ctx.images, docOptions)
         },
         {
             title: "compressing epub",
             task: async () => await zipFilesAsync(docOptions)
+        },
+        {
+            title: "removig temp directory",
+            skip: () => options.cli.keepTemp,
+            task: async() => await rmAsync(options.buildDir, { recursive: true })
         }
     ])
-
-    if (!options.cli.keepTemp) {
-        tasks.add({
-            title: "removig temp directory",
-            task: async() => await rmdirAsync(options.buildDir, { recursive: true })
-        })
-    }
 
     await tasks.run()
 }

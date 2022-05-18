@@ -1,36 +1,35 @@
 import os from "os"
 import child_process from "child_process"
 
-import { CliOptions } from "./cli"
+import { CliOptions } from "./cli.js"
 
-function spawn(command: string, args: string[], closeCallback: () => void) {
-    const process = child_process.spawn(command, args, { stdio: "ignore", windowsHide: true })
-    process.on("close", () => {
-        closeCallback()
+function spawnAync(command: string, args: string[]): Promise<void> {
+    return new Promise<void>(resolve => {
+        const process = child_process.spawn(command, args, { stdio: "ignore", windowsHide: true })
+        process.on("close", () => {
+            resolve()
+        })        
     })
 }
 
 export async function execProcessInParallelAsync(command: string, argsList: string[][], cli: CliOptions): Promise<void> {
     const noOfCpus = cli.jobs === 0 ? os.cpus().length : cli.jobs
-    let spawns = 0
 
-    function run(index: number, resolve: () => void) {
-        setImmediate(() => {
-            if (index == argsList.length && spawns == 0) {
-                resolve()
-            } else {
-                if (spawns < noOfCpus && index < argsList.length) {
-                    spawn(command, argsList[index], () => { spawns-- })
-                    spawns++
-                    run(index + 1, resolve)
-                } else {
-                    run(index, resolve)
-                }
-            }
-        })
+    let index = 0;
+
+    async function runTask() {
+        if (index >= argsList.length) return
+
+        await spawnAync(command, argsList[index++])
+        await runTask()
     }
 
-    return new Promise(resolve => {
-        run(0, resolve)
-    })
+    const tasks: Promise<void>[] = []
+    for (let i = 0; i < noOfCpus; i++) {
+        tasks.push(runTask())
+    }
+
+    return Promise
+            .all(tasks)
+            .then(() => { return })
 }

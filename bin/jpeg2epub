@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/bin/bash
 
-const main = require("../build/main")
+PRG="$0"
+PRGDIR=`dirname "$PRG"`
 
+node `realpath "$PRGDIR/../build/main.js"` "$@"

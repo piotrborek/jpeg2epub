@@ -4,12 +4,12 @@ import os from "os"
 import console from "console"
 import perf_hooks from "perf_hooks"
 
-import { checkConfigAsync, writeConfigAsync } from "./config"
-import { cliAsync } from "./cli"
-import { mkTempDirAsync } from "./file-utils"
-import { buildDocumentAsync } from "./docbuilder"
-import { getName } from "./utils"
-import { errorMessage, infoMessage } from "./log"
+import { checkConfigAsync, writeConfigAsync } from "./config.js"
+import { cliAsync } from "./cli.js"
+import { mkTempDirAsync } from "./file-utils.js"
+import { buildDocumentAsync } from "./docbuilder.js"
+import { getName } from "./utils.js"
+import { errorMessage, infoMessage } from "./log.js"
 
 function showLogo() {
     console.log(
