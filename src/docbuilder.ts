@@ -230,6 +230,7 @@ export async function buildDocumentAsync(options: { cli: CliOptions, buildDir: s
         },
         {
             title: "decompresing",
+            skip: () => !options.cli.inputFile,
             task: async () => await unzipFilesAsync(docOptions)
         },
         {

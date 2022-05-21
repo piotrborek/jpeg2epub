@@ -29,3 +29,9 @@ export function hasNumericFileNames(a: string[]): boolean {
     }
     return true
 }
+
+export function repeat(times: number, callback: (i: number) => void) {
+    for (let i = 0; i < times; i++) {
+        callback(i)
+    }
+}

@@ -2,6 +2,7 @@ import os from "os"
 import child_process from "child_process"
 
 import { CliOptions } from "./cli.js"
+import { repeat } from "./utils.js"
 
 function spawnAync(command: string, args: string[]): Promise<void> {
     return new Promise<void>(resolve => {
@@ -25,9 +26,9 @@ export async function execProcessInParallelAsync(command: string, argsList: stri
     }
 
     const tasks: Promise<void>[] = []
-    for (let i = 0; i < noOfCpus; i++) {
+    repeat(noOfCpus, () => {
         tasks.push(runTask())
-    }
+    })
 
     return Promise
             .all(tasks)
